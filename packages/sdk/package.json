@@ -1,0 +1,62 @@
+{
+  "name": "@respira/sdk",
+  "version": "0.1.0",
+  "description": "TypeScript SDK for Respira CLI for WordPress. Builder-native read and write operations for Elementor, Divi, Bricks, WooCommerce, and more.",
+  "keywords": [
+    "wordpress",
+    "wordpress-sdk",
+    "wordpress-cli",
+    "respira",
+    "elementor",
+    "divi",
+    "bricks",
+    "woocommerce"
+  ],
+  "homepage": "https://respira.press/cli/docs/sdk",
+  "bugs": "https://github.com/respira-press/respira-wordpress-CLI/issues",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/respira-press/respira-wordpress-CLI.git",
+    "directory": "packages/sdk"
+  },
+  "license": "MIT",
+  "author": "Mihai Dragomirescu <mihai@respira.press>",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./types": {
+      "types": "./dist/types/index.d.ts",
+      "import": "./dist/types/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "clean": "rm -rf dist",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src --ext .ts"
+  },
+  "dependencies": {
+    "@respira/cli-core": "0.1.0",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.0",
+    "typescript": "^5.5.3",
+    "vitest": "^2.0.0"
+  }
+}

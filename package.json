@@ -1,0 +1,26 @@
+{
+  "name": "respira-wordpress-cli-monorepo",
+  "version": "0.1.0",
+  "description": "Respira CLI for WordPress — monorepo root.",
+  "private": true,
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/respira-press/respira-wordpress-CLI.git"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "workspaces": [
+    "packages/cli-core",
+    "packages/sdk",
+    "packages/cli"
+  ],
+  "scripts": {
+    "build": "npm run build --workspaces --if-present",
+    "dev": "npm run dev --workspace=@respira/cli",
+    "test": "npm run test --workspaces --if-present",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "prepare-release": "bash prepare-release.sh"
+  }
+}

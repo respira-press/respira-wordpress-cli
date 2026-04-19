@@ -1,0 +1,102 @@
+{
+  "name": "@respira/cli",
+  "version": "0.1.0",
+  "description": "Respira CLI for WordPress. The WordPress CLI for the AI coding agent era. Works with Elementor, Divi, Bricks, WPBakery, WooCommerce, and more.",
+  "keywords": [
+    "wordpress",
+    "wordpress-cli",
+    "cli",
+    "respira",
+    "elementor",
+    "elementor-cli",
+    "divi",
+    "divi-cli",
+    "bricks",
+    "bricks-cli",
+    "wpbakery",
+    "woocommerce",
+    "woocommerce-cli",
+    "gutenberg",
+    "ai",
+    "claude-code",
+    "cursor",
+    "mcp"
+  ],
+  "homepage": "https://respira.press/cli",
+  "bugs": "https://github.com/respira-press/respira-wordpress-CLI/issues",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/respira-press/respira-wordpress-CLI.git",
+    "directory": "packages/cli"
+  },
+  "license": "MIT",
+  "author": "Mihai Dragomirescu <mihai@respira.press>",
+  "type": "module",
+  "bin": {
+    "respira": "./bin/run.js"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "bin",
+    "dist",
+    "docs-content",
+    "oclif.manifest.json",
+    "README.md",
+    "LICENSE",
+    "NOTICE"
+  ],
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "scripts": {
+    "build": "tsc && oclif manifest",
+    "dev": "tsc --watch",
+    "clean": "rm -rf dist oclif.manifest.json",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src --ext .ts",
+    "postpack": "rm -f oclif.manifest.json",
+    "prepack": "npm run build",
+    "version": "oclif readme && git add README.md"
+  },
+  "dependencies": {
+    "@oclif/core": "^4.0.0",
+    "@oclif/plugin-help": "^6.2.0",
+    "@oclif/plugin-plugins": "^5.4.0",
+    "@respira/cli-core": "0.1.0",
+    "@respira/sdk": "0.1.0",
+    "chalk": "^5.3.0",
+    "cli-table3": "^0.6.5",
+    "keytar": "^7.9.0",
+    "open": "^10.1.0",
+    "ora": "^8.0.1",
+    "tsx": "^4.16.0",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@oclif/test": "^4.0.0",
+    "@types/node": "^20.14.0",
+    "oclif": "^4.14.0",
+    "typescript": "^5.5.3",
+    "vitest": "^2.0.0"
+  },
+  "oclif": {
+    "bin": "respira",
+    "dirname": "respira",
+    "commands": "./dist/commands",
+    "plugins": [
+      "@oclif/plugin-help"
+    ],
+    "topicSeparator": " ",
+    "topics": {
+      "auth": { "description": "authenticate the CLI with respira.press" },
+      "sites": { "description": "manage connected WordPress sites" },
+      "read": { "description": "read content from WordPress sites" },
+      "write": { "description": "write content to WordPress sites" },
+      "tools": { "description": "browse the Respira tool catalog" },
+      "docs": { "description": "browse builder documentation" },
+      "snapshots": { "description": "list and restore site snapshots" }
+    }
+  }
+}
