@@ -195,6 +195,35 @@ export const ElementSchema = z.object({
 });
 export type Element = z.infer<typeof ElementSchema>;
 
+export const FindElementQuerySchema = z
+  .object({
+    type: z.string().optional(),
+    text: z.string().optional(),
+    css: z.string().optional(),
+    id: z.string().optional(),
+    limit: z.number().int().positive().max(100).optional(),
+  })
+  .refine((q) => Boolean(q.type || q.text || q.css || q.id), {
+    message: 'at least one of type, text, css, or id is required',
+  });
+export type FindElementQuery = z.infer<typeof FindElementQuerySchema>;
+
+export const FoundElementSchema = z.object({
+  id: z.string(),
+  type: z.string(),
+  text: z.string().optional(),
+  path: z.string().optional(),
+  settings: z.record(z.unknown()).optional(),
+});
+export type FoundElement = z.infer<typeof FoundElementSchema>;
+
+export const DiffSchema = z.object({
+  before: z.unknown(),
+  after: z.unknown(),
+  summary: z.string().optional(),
+});
+export type Diff = z.infer<typeof DiffSchema>;
+
 export const CreatePostInputSchema = CreatePageInputSchema.extend({
   type: z.string().default('post'),
   markdown: z.string().optional(),

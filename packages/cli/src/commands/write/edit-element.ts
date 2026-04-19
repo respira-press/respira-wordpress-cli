@@ -12,6 +12,7 @@ export default class WriteEditElement extends BaseCommand {
     ...BaseCommand.baseFlags,
     set: Flags.string({ required: true, multiple: true, description: 'key=value (repeatable)' }),
     'dry-run': Flags.boolean(),
+    diff: Flags.boolean({ description: 'show before/after by reading the page first' }),
   };
 
   async run(): Promise<void> {
@@ -37,8 +38,15 @@ export default class WriteEditElement extends BaseCommand {
       return;
     }
     try {
-      const element = await this.client.write.editElement(args.site, args.page, args.selector, changes);
-      this.out.json(element);
+      const before = flags.diff
+        ? await this.client.read.page(args.site, args.page).catch(() => null)
+        : null;
+      const after = await this.client.write.editElement(args.site, args.page, args.selector, changes);
+      if (flags.diff) {
+        this.out.json({ before, after });
+      } else {
+        this.out.json(after);
+      }
     } catch (err) {
       this.handleError(err);
     }

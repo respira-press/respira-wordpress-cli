@@ -16,7 +16,7 @@ export default class WriteEditPage extends BaseCommand {
       required: true,
     }),
     'dry-run': Flags.boolean({ description: 'preview without making changes' }),
-    diff: Flags.boolean({ description: 'show before/after' }),
+    diff: Flags.boolean({ description: 'show before/after by reading the page first' }),
   };
 
   async run(): Promise<void> {
@@ -41,8 +41,15 @@ export default class WriteEditPage extends BaseCommand {
       return;
     }
     try {
-      const page = await this.client.write.editPage(args.site, args.page, patches);
-      this.out.json(page);
+      const before = flags.diff
+        ? await this.client.read.page(args.site, args.page).catch(() => null)
+        : null;
+      const after = await this.client.write.editPage(args.site, args.page, patches);
+      if (flags.diff) {
+        this.out.json({ before, after });
+      } else {
+        this.out.json(after);
+      }
     } catch (err) {
       this.handleError(err);
     }

@@ -12,6 +12,8 @@ import {
   DocSchema,
   ElementSchema,
   ElementorComponentSchema,
+  FindElementQuerySchema,
+  FoundElementSchema,
   HealthReportSchema,
   MediaFilterSchema,
   MediaSchema,
@@ -38,6 +40,8 @@ import {
   type Doc,
   type Element,
   type ElementorComponent,
+  type FindElementQuery,
+  type FoundElement,
   type HealthReport,
   type Media,
   type MediaFilter,
@@ -156,6 +160,14 @@ export function createRespiraClient(opts: RespiraClientOptions = {}): RespiraCli
           await get(`cli/sites/${encodeURIComponent(site)}/divi/modules/${encodeURIComponent(moduleId)}`),
         );
       },
+      async findElement(site: string, page: string, query: FindElementQuery): Promise<FoundElement[]> {
+        const parsed = FindElementQuerySchema.parse(query);
+        const data = await get<unknown>(
+          `cli/sites/${encodeURIComponent(site)}/pages/${encodeURIComponent(page)}/find`,
+          parsed,
+        );
+        return z.array(FoundElementSchema).parse(data);
+      },
     },
     write: {
       async createPage(site: string, input: CreatePageInput): Promise<Page> {
@@ -265,6 +277,7 @@ export interface RespiraClient {
     designSystem(site: string): Promise<DesignSystem>;
     elementorFooter(site: string): Promise<ElementorComponent>;
     diviModule(site: string, moduleId: string): Promise<DiviModule>;
+    findElement(site: string, page: string, query: FindElementQuery): Promise<FoundElement[]>;
   };
   write: {
     createPage(site: string, input: CreatePageInput): Promise<Page>;
