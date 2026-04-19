@@ -74,9 +74,15 @@ export default class AuthLogin extends BaseCommand {
         server.close();
       });
 
-      server.listen(0, '127.0.0.1', () => {
+      server.listen(0, '127.0.0.1', async () => {
         const { port } = server.address() as AddressInfo;
         const authUrl = `${webUrl.replace(/\/+$/, '')}/cli/auth?state=${state}&port=${port}`;
+        // Register the state + port with the backend before opening the browser.
+        // The /cli/auth page has a fallback that late-registers if this step fails,
+        // so we don't block on it — we just fire-and-forget and log on error.
+        this.registerState(state, port).catch((err) => {
+          this.out.debug(`register-state failed (handshake will still work via fallback): ${err?.message ?? err}`);
+        });
         if (noBrowser) {
           this.out.info(`open this URL to authenticate:\n${authUrl}`);
         } else {
@@ -106,5 +112,14 @@ export default class AuthLogin extends BaseCommand {
     });
     if (!res.apiKey) throw new Error('no apiKey returned from exchange endpoint');
     return res.apiKey;
+  }
+
+  private async registerState(state: string, port: number): Promise<void> {
+    const { flags } = await this.parse(AuthLogin);
+    const api = new ApiClient({ baseUrl: flags['base-url'], apiKey: null });
+    await api.request('cli/auth/register-state', {
+      method: 'POST',
+      body: JSON.stringify({ state, port }),
+    });
   }
 }
