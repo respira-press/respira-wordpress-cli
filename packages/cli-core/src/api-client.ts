@@ -1,11 +1,22 @@
 import { ErrorCodes, NetworkError, RespiraError } from './errors.js';
 
+export interface SiteContext {
+  url: string;
+  apiKey: string;
+}
+
 export interface ApiClientOptions {
   baseUrl?: string;
   /** Static API key. Prefer apiKeyResolver for credential stores. */
   apiKey?: string | null;
   /** Resolver called on each request. Return null for anonymous. */
   apiKeyResolver?: () => Promise<string | null> | string | null;
+  /**
+   * Resolver called with the site identifier (URL or short name) a request is scoped to.
+   * Return a { url, apiKey } object or null if unknown. The client injects
+   * X-Respira-Site-Url + X-Respira-Site-Key headers when resolver succeeds.
+   */
+  siteResolver?: (siteId: string) => Promise<SiteContext | null> | SiteContext | null;
   userAgent?: string;
   timeoutMs?: number;
   maxRetries?: number;
@@ -14,6 +25,11 @@ export interface ApiClientOptions {
 export interface ApiRequestOptions extends Omit<RequestInit, 'headers'> {
   query?: Record<string, string | number | boolean | undefined>;
   headers?: Record<string, string>;
+  /**
+   * Site identifier this request targets. Resolved through ApiClientOptions.siteResolver
+   * into X-Respira-Site-Url + X-Respira-Site-Key headers.
+   */
+  site?: string;
 }
 
 const DEFAULT_BASE_URL = 'https://respira.press/api/v1';
@@ -24,6 +40,7 @@ export class ApiClient {
   private readonly baseUrl: string;
   private readonly apiKey: string | null;
   private readonly apiKeyResolver?: () => Promise<string | null> | string | null;
+  private readonly siteResolver?: (siteId: string) => Promise<SiteContext | null> | SiteContext | null;
   private readonly userAgent: string;
   private readonly timeoutMs: number;
   private readonly maxRetries: number;
@@ -32,6 +49,7 @@ export class ApiClient {
     this.baseUrl = (opts.baseUrl ?? DEFAULT_BASE_URL).replace(/\/+$/, '');
     this.apiKey = opts.apiKey ?? null;
     this.apiKeyResolver = opts.apiKeyResolver;
+    this.siteResolver = opts.siteResolver;
     this.userAgent = opts.userAgent ?? 'respira-cli';
     this.timeoutMs = opts.timeoutMs ?? DEFAULT_TIMEOUT_MS;
     this.maxRetries = opts.maxRetries ?? DEFAULT_MAX_RETRIES;
@@ -58,6 +76,19 @@ export class ApiClient {
     if (key) headers['authorization'] = `Bearer ${key}`;
     if (opts.body && !headers['content-type']) {
       headers['content-type'] = 'application/json';
+    }
+    if (opts.site && this.siteResolver) {
+      const ctx = await this.siteResolver(opts.site);
+      if (ctx) {
+        headers['x-respira-site-url'] = ctx.url;
+        headers['x-respira-site-key'] = ctx.apiKey;
+      } else {
+        throw new RespiraError(
+          ErrorCodes.SITE_NOT_FOUND,
+          `no local config for site "${opts.site}". Run: respira sites connect <url> --key=respira_...`,
+          { status: 400, hint: 'respira sites connect <url> --key=respira_...' },
+        );
+      }
     }
 
     let lastErr: unknown;

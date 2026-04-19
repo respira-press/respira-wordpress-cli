@@ -1,4 +1,12 @@
-import { ApiClient, type ApiClientOptions, createAuthStore } from '@respira/cli-core';
+import {
+  ApiClient,
+  type ApiClientOptions,
+  createAuthStore,
+  createSitesStore,
+  type SiteContext,
+  type SitesStore,
+  type StoredSite,
+} from '@respira/cli-core';
 import { readFile } from 'node:fs/promises';
 import { basename } from 'node:path';
 import { z } from 'zod';
@@ -81,16 +89,51 @@ export function createRespiraClient(opts: RespiraClientOptions = {}): RespiraCli
         return cachedKey;
       };
 
-  const api = new ApiClient({ ...opts, apiKey: null, apiKeyResolver: resolver });
-
-  function get<T>(path: string, query?: Record<string, string | number | boolean | undefined>): Promise<T> {
-    return api.request<T>(path, { method: 'GET', query });
+  let sitesStorePromise: Promise<SitesStore> | null = null;
+  function getSitesStore(): Promise<SitesStore> {
+    if (!sitesStorePromise) sitesStorePromise = createSitesStore();
+    return sitesStorePromise;
   }
-  function post<T>(path: string, body?: unknown, query?: Record<string, string | number | boolean | undefined>): Promise<T> {
+
+  const siteResolver = async (siteId: string): Promise<SiteContext | null> => {
+    // Caller-provided resolver wins. Useful for scripts that pass site keys explicitly.
+    if (opts.siteResolver) {
+      const ctx = await opts.siteResolver(siteId);
+      if (ctx) return ctx;
+    }
+    const store = await getSitesStore();
+    const entry = await store.find(siteId);
+    if (!entry) return null;
+    return { url: entry.url, apiKey: entry.apiKey };
+  };
+
+  const api = new ApiClient({
+    ...opts,
+    apiKey: null,
+    apiKeyResolver: resolver,
+    siteResolver,
+  });
+
+  function get<T>(path: string, query?: Record<string, string | number | boolean | undefined>, site?: string): Promise<T> {
+    return api.request<T>(path, { method: 'GET', query, site });
+  }
+  function post<T>(path: string, body?: unknown, query?: Record<string, string | number | boolean | undefined>, site?: string): Promise<T> {
     return api.request<T>(path, {
       method: 'POST',
       body: body != null ? JSON.stringify(body) : undefined,
       query,
+      site,
+    });
+  }
+
+  function toPublicSite(entry: StoredSite): Site {
+    return SiteSchema.parse({
+      id: entry.name,
+      url: entry.url,
+      name: entry.name,
+      builder: 'unknown',
+      status: 'connected',
+      lastCheckedAt: entry.addedAt,
     });
   }
 
@@ -104,47 +147,100 @@ export function createRespiraClient(opts: RespiraClientOptions = {}): RespiraCli
       },
     },
     sites: {
+      /**
+       * List sites connected through this CLI instance.
+       * Reads from ~/.respira/sites.json — no network call.
+       */
       async list(filter?: SiteFilter): Promise<Site[]> {
-        const parsed = filter ? SiteFilterSchema.parse(filter) : undefined;
-        return z.array(SiteSchema).parse(await get('cli/sites', parsed));
+        if (filter) SiteFilterSchema.parse(filter);
+        const store = await getSitesStore();
+        const entries = await store.list();
+        let items = entries.map(toPublicSite);
+        if (filter?.search) {
+          const q = filter.search.toLowerCase();
+          items = items.filter(
+            (s) => s.url.toLowerCase().includes(q) || s.name.toLowerCase().includes(q),
+          );
+        }
+        return items;
       },
+      /**
+       * Read site info from the local store. For live site context (WP version,
+       * active builder), call sites.health(site) — that's the live probe.
+       */
       async info(site: string): Promise<Site> {
-        return SiteSchema.parse(await get(`cli/sites/${encodeURIComponent(site)}`));
+        const store = await getSitesStore();
+        const entry = await store.find(site);
+        if (!entry) {
+          throw new Error(`site "${site}" is not configured locally. Run: respira sites connect <url> --key=respira_...`);
+        }
+        return toPublicSite(entry);
       },
+      /**
+       * Hit the live WP plugin via the backend proxy to verify reachability.
+       */
       async health(site: string): Promise<HealthReport> {
-        return HealthReportSchema.parse(await post(`cli/sites/${encodeURIComponent(site)}/health`));
+        const store = await getSitesStore();
+        const entry = await store.find(site);
+        if (!entry) {
+          throw new Error(`site "${site}" is not configured locally. Run: respira sites connect <url> --key=respira_...`);
+        }
+        return HealthReportSchema.parse(
+          await post(`cli/sites/${encodeURIComponent(entry.url)}/health`, undefined, undefined, entry.url),
+        );
+      },
+      /**
+       * Store a site's plugin API key in ~/.respira/sites.json. The key the WP
+       * plugin generates (respira_...) is kept locally. No upload. The CLI
+       * injects it on every site-scoped request via the X-Respira-Site-Key
+       * header.
+       */
+      async connect(input: { url: string; apiKey: string; name?: string }): Promise<Site> {
+        const store = await getSitesStore();
+        const entry = await store.add(input);
+        return toPublicSite(entry);
+      },
+      /**
+       * Remove a site from ~/.respira/sites.json. The WP plugin still considers
+       * the key active — revoke there if you want to kill the connection
+       * entirely.
+       */
+      async disconnect(idOrUrl: string): Promise<boolean> {
+        const store = await getSitesStore();
+        return store.remove(idOrUrl);
       },
     },
     read: {
       async page(site: string, page: string, opts?: ReadOpts): Promise<Page> {
         const parsed = opts ? ReadOptsSchema.parse(opts) : { as: 'builder' as const };
         return PageSchema.parse(
-          await get(`cli/sites/${encodeURIComponent(site)}/pages/${encodeURIComponent(page)}`, { as: parsed.as }),
+          await get(`cli/sites/${encodeURIComponent(site)}/pages/${encodeURIComponent(page)}`, { as: parsed.as }, site),
         );
       },
       async pages(site: string, filter?: PagesFilter): Promise<Page[]> {
         const parsed = filter ? PagesFilterSchema.parse(filter) : undefined;
-        return z.array(PageSchema).parse(await get(`cli/sites/${encodeURIComponent(site)}/pages`, parsed));
+        return z.array(PageSchema).parse(await get(`cli/sites/${encodeURIComponent(site)}/pages`, parsed, site));
       },
       async post(site: string, post: string): Promise<Post> {
         return PostSchema.parse(
-          await get(`cli/sites/${encodeURIComponent(site)}/posts/${encodeURIComponent(post)}`),
+          await get(`cli/sites/${encodeURIComponent(site)}/posts/${encodeURIComponent(post)}`, undefined, site),
         );
       },
       async posts(site: string, filter?: PostsFilter): Promise<Post[]> {
         const parsed = filter ? PostsFilterSchema.parse(filter) : undefined;
-        return z.array(PostSchema).parse(await get(`cli/sites/${encodeURIComponent(site)}/posts`, parsed));
+        return z.array(PostSchema).parse(await get(`cli/sites/${encodeURIComponent(site)}/posts`, parsed, site));
       },
       async media(site: string, filter?: MediaFilter): Promise<Media[]> {
         const parsed = filter ? MediaFilterSchema.parse(filter) : undefined;
-        return z.array(MediaSchema).parse(await get(`cli/sites/${encodeURIComponent(site)}/media`, parsed));
+        return z.array(MediaSchema).parse(await get(`cli/sites/${encodeURIComponent(site)}/media`, parsed, site));
       },
       async taxonomy(site: string, taxonomy: string): Promise<Term[]> {
         return z
           .array(TermSchema)
-          .parse(await get(`cli/sites/${encodeURIComponent(site)}/taxonomies/${encodeURIComponent(taxonomy)}`));
+          .parse(await get(`cli/sites/${encodeURIComponent(site)}/taxonomies/${encodeURIComponent(taxonomy)}`, undefined, site));
       },
       async structure(site: string): Promise<SiteStructure> {
+        // Anonymous endpoint — no site headers needed (site URL is the query param).
         return SiteStructureSchema.parse(await get('cli/public/structure', { site }));
       },
       async designSystem(site: string): Promise<DesignSystem> {
@@ -152,12 +248,12 @@ export function createRespiraClient(opts: RespiraClientOptions = {}): RespiraCli
       },
       async elementorFooter(site: string): Promise<ElementorComponent> {
         return ElementorComponentSchema.parse(
-          await get(`cli/sites/${encodeURIComponent(site)}/elementor/footer`),
+          await get(`cli/sites/${encodeURIComponent(site)}/elementor/footer`, undefined, site),
         );
       },
       async diviModule(site: string, moduleId: string): Promise<DiviModule> {
         return DiviModuleSchema.parse(
-          await get(`cli/sites/${encodeURIComponent(site)}/divi/modules/${encodeURIComponent(moduleId)}`),
+          await get(`cli/sites/${encodeURIComponent(site)}/divi/modules/${encodeURIComponent(moduleId)}`, undefined, site),
         );
       },
       async findElement(site: string, page: string, query: FindElementQuery): Promise<FoundElement[]> {
@@ -165,6 +261,7 @@ export function createRespiraClient(opts: RespiraClientOptions = {}): RespiraCli
         const data = await get<unknown>(
           `cli/sites/${encodeURIComponent(site)}/pages/${encodeURIComponent(page)}/find`,
           parsed,
+          site,
         );
         return z.array(FoundElementSchema).parse(data);
       },
@@ -172,12 +269,12 @@ export function createRespiraClient(opts: RespiraClientOptions = {}): RespiraCli
     write: {
       async createPage(site: string, input: CreatePageInput): Promise<Page> {
         const parsed = CreatePageInputSchema.parse(input);
-        return PageSchema.parse(await post(`cli/sites/${encodeURIComponent(site)}/pages`, parsed));
+        return PageSchema.parse(await post(`cli/sites/${encodeURIComponent(site)}/pages`, parsed, undefined, site));
       },
       async editPage(site: string, page: string, patches: Patch[]): Promise<Page> {
         const parsed = z.array(PatchSchema).parse(patches);
         return PageSchema.parse(
-          await post(`cli/sites/${encodeURIComponent(site)}/pages/${encodeURIComponent(page)}/patch`, { patches: parsed }),
+          await post(`cli/sites/${encodeURIComponent(site)}/pages/${encodeURIComponent(page)}/patch`, { patches: parsed }, undefined, site),
         );
       },
       async editElement(
@@ -190,17 +287,17 @@ export function createRespiraClient(opts: RespiraClientOptions = {}): RespiraCli
           await post(`cli/sites/${encodeURIComponent(site)}/pages/${encodeURIComponent(page)}/element`, {
             selector,
             changes,
-          }),
+          }, undefined, site),
         );
       },
       async createPost(site: string, input: CreatePostInput): Promise<Post> {
         const parsed = CreatePostInputSchema.parse(input);
-        return PostSchema.parse(await post(`cli/sites/${encodeURIComponent(site)}/posts`, parsed));
+        return PostSchema.parse(await post(`cli/sites/${encodeURIComponent(site)}/posts`, parsed, undefined, site));
       },
       async updateDesignSystem(site: string, input: DesignSystemInput): Promise<DesignSystem> {
         const parsed = DesignSystemInputSchema.parse(input);
         return DesignSystemSchema.parse(
-          await post(`cli/sites/${encodeURIComponent(site)}/design-system`, parsed),
+          await post(`cli/sites/${encodeURIComponent(site)}/design-system`, parsed, undefined, site),
         );
       },
       async uploadMedia(site: string, file: string | Buffer): Promise<Media> {
@@ -209,9 +306,16 @@ export function createRespiraClient(opts: RespiraClientOptions = {}): RespiraCli
         const form = new FormData();
         form.set('file', new Blob([buffer]), name);
         const key = await resolver();
+        const siteCtx = await siteResolver(site);
+        const headers: Record<string, string> = {};
+        if (key) headers['authorization'] = `Bearer ${key}`;
+        if (siteCtx) {
+          headers['x-respira-site-url'] = siteCtx.url;
+          headers['x-respira-site-key'] = siteCtx.apiKey;
+        }
         const res = await fetch(`${api.getBaseUrl()}/cli/sites/${encodeURIComponent(site)}/media`, {
           method: 'POST',
-          headers: key ? { authorization: `Bearer ${key}` } : undefined,
+          headers,
           body: form,
         });
         if (!res.ok) throw new Error(`uploadMedia failed: HTTP ${res.status}`);
@@ -244,13 +348,15 @@ export function createRespiraClient(opts: RespiraClientOptions = {}): RespiraCli
     },
     snapshots: {
       async list(site: string): Promise<Snapshot[]> {
-        return z.array(SnapshotSchema).parse(await get(`cli/sites/${encodeURIComponent(site)}/snapshots`));
+        return z
+          .array(SnapshotSchema)
+          .parse(await get(`cli/sites/${encodeURIComponent(site)}/snapshots`, undefined, site));
       },
-      async restore(snapshotId: string): Promise<void> {
-        await post(`cli/snapshots/${encodeURIComponent(snapshotId)}/restore`);
+      async restore(snapshotId: string, site?: string): Promise<void> {
+        await post(`cli/snapshots/${encodeURIComponent(snapshotId)}/restore`, undefined, undefined, site);
       },
-      async show(snapshotId: string): Promise<Snapshot> {
-        return SnapshotSchema.parse(await get(`cli/snapshots/${encodeURIComponent(snapshotId)}`));
+      async show(snapshotId: string, site?: string): Promise<Snapshot> {
+        return SnapshotSchema.parse(await get(`cli/snapshots/${encodeURIComponent(snapshotId)}`, undefined, site));
       },
     },
   };
@@ -265,6 +371,8 @@ export interface RespiraClient {
     list(filter?: SiteFilter): Promise<Site[]>;
     info(site: string): Promise<Site>;
     health(site: string): Promise<HealthReport>;
+    connect(input: { url: string; apiKey: string; name?: string }): Promise<Site>;
+    disconnect(idOrUrl: string): Promise<boolean>;
   };
   read: {
     page(site: string, page: string, opts?: ReadOpts): Promise<Page>;
@@ -304,7 +412,7 @@ export interface RespiraClient {
   };
   snapshots: {
     list(site: string): Promise<Snapshot[]>;
-    restore(snapshotId: string): Promise<void>;
-    show(snapshotId: string): Promise<Snapshot>;
+    restore(snapshotId: string, site?: string): Promise<void>;
+    show(snapshotId: string, site?: string): Promise<Snapshot>;
   };
 }
