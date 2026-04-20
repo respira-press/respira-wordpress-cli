@@ -4,6 +4,29 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.3] - 2026-04-20
+
+### Fixed
+
+- **Removed `keytar` dependency** to silence the npm install deprecation warning (`prebuild-install@7.1.3: No longer maintained`). Switched to [`@napi-rs/keyring`](https://www.npmjs.com/package/@napi-rs/keyring), an actively maintained NAPI-RS project with the same OS-keyring guarantees. The encrypted-file fallback at `~/.respira/credentials` still kicks in when the OS keyring is unavailable (CI, headless, Linux without secret-service). Zero install warnings now.
+- **`respira auth login` now correctly shows `Welcome, <email>`** instead of the generic `authenticated. run: respira auth status`. The previous client was initialized as anonymous before the API key existed and never re-created, so every `whoami()` call after login went out without a key, 401'd, and the `.catch` swallowed it. Fixed by re-initializing the client immediately after the exchange writes the key.
+- **Terminal no longer hangs after `respira auth login`.** The local HTTP callback server sent the success page but the browser kept the connection open with HTTP keep-alive, preventing `server.close()` from releasing the port and keeping the Node event loop alive. Now sends `Connection: close`, force-destroys the request socket on the next tick, and calls `server.closeAllConnections()` so the process exits cleanly.
+
+### Changed
+
+- **Warmer welcome on successful login** with a list of suggested next commands and a docs link, instead of the cramped one-line message:
+  ```
+  ✓ Welcome, mihai@respira.press. Youu2019re signed in to Respira CLI.
+
+  Try one of these next:
+    respira sites connect <url>      Connect a WordPress site
+    respira sites list               See your connected sites
+    respira tools list               Browse the 234-tool catalog
+    respira read structure <url>    Anonymous read of any public WP site
+
+  Docs: https://respira.press/cli/docs
+  ```
+
 ## [0.1.2] - 2026-04-20
 
 ### Fixed

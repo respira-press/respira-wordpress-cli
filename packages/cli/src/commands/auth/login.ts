@@ -65,12 +65,24 @@ export default class AuthLogin extends BaseCommand {
         { state, code, baseUrl: flags['base-url'] },
         { toolName: 'auth login' },
       );
+      // Re-init the client so it picks up the API key just written to the
+      // keychain. The original client was anonymous and would 401 on whoami.
+      await this.initClient();
       const whoami = await this.client.auth.whoami().catch(() => null);
-      if (whoami) {
-        this.out.success(`authenticated as ${whoami.email}`);
-      } else {
-        this.out.success('authenticated. run: respira auth status');
-      }
+      const greeting = whoami
+        ? `Welcome${whoami.email ? `, ${whoami.email}` : ''}.`
+        : 'Welcome.';
+      this.log('');
+      this.log(`  ✓ ${greeting} You\u2019re signed in to Respira CLI.`);
+      this.log('');
+      this.log('  Try one of these next:');
+      this.log('    respira sites connect <url>      Connect a WordPress site');
+      this.log('    respira sites list               See your connected sites');
+      this.log('    respira tools list               Browse the 234-tool catalog');
+      this.log('    respira read structure <url>    Anonymous read of any public WP site');
+      this.log('');
+      this.log('  Docs: https://respira.press/cli/docs');
+      this.log('');
     } catch (err) {
       this.handleError(err);
     }
@@ -102,11 +114,21 @@ export default class AuthLogin extends BaseCommand {
           server.close();
           return;
         }
-        res.writeHead(200, { 'content-type': 'text/html' }).end(
+        // Send Connection: close so the browser does not hold the socket open
+        // with HTTP keep-alive, which would prevent server.close() from fully
+        // releasing the port and keep the Node process alive.
+        res.writeHead(200, {
+          'content-type': 'text/html; charset=utf-8',
+          'connection': 'close',
+        }).end(
           '<!doctype html><meta charset="utf-8"><title>respira cli</title><body style="font-family:system-ui;padding:40px;max-width:480px"><h1>you\'re authenticated.</h1><p>you can close this tab and return to your terminal.</p></body>',
         );
+        // Force-destroy the socket on the next tick to release the keep-alive
+        // and let the event loop drain so the CLI returns to the prompt.
+        setImmediate(() => req.socket.destroy());
         resolve({ code, port: (server.address() as AddressInfo).port });
         server.close();
+        server.closeAllConnections?.();
       });
 
       server.listen(0, '127.0.0.1', async () => {
