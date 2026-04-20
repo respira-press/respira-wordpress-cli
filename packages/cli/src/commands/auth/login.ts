@@ -49,7 +49,7 @@ export default class AuthLogin extends BaseCommand {
     'no-browser': Flags.boolean({ description: 'print the URL instead of opening a browser' }),
     'web-url': Flags.string({
       description: 'override the web URL used for the auth handshake',
-      default: 'https://respira.press',
+      default: 'https://www.respira.press',
       env: 'RESPIRA_WEB_URL',
     }),
   };

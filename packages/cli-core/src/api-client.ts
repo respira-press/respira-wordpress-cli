@@ -32,7 +32,7 @@ export interface ApiRequestOptions extends Omit<RequestInit, 'headers'> {
   site?: string;
 }
 
-const DEFAULT_BASE_URL = 'https://respira.press/api/v1';
+const DEFAULT_BASE_URL = 'https://www.respira.press/api/v1';
 const DEFAULT_TIMEOUT_MS = 60_000;
 const DEFAULT_MAX_RETRIES = 2;
 

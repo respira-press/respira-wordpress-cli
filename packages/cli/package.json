@@ -1,6 +1,6 @@
 {
   "name": "@respira/cli",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Respira CLI for WordPress. The WordPress CLI for the AI coding agent era. Works with Elementor, Divi, Bricks, WPBakery, WooCommerce, and more.",
   "keywords": [
     "wordpress",
@@ -64,8 +64,8 @@
     "@oclif/core": "^4.0.0",
     "@oclif/plugin-help": "^6.2.0",
     "@oclif/plugin-plugins": "^5.4.0",
-    "@respira/cli-core": "0.1.1",
-    "@respira/sdk": "0.1.1",
+    "@respira/cli-core": "0.1.2",
+    "@respira/sdk": "0.1.2",
     "chalk": "^5.3.0",
     "cli-table3": "^0.6.5",
     "keytar": "^7.9.0",

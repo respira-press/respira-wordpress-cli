@@ -1,6 +1,6 @@
 {
   "name": "@respira/sdk",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "TypeScript SDK for Respira CLI for WordPress. Builder-native read and write operations for Elementor, Divi, Bricks, WooCommerce, and more.",
   "keywords": [
     "wordpress",
@@ -51,7 +51,7 @@
     "lint": "eslint src --ext .ts"
   },
   "dependencies": {
-    "@respira/cli-core": "0.1.1",
+    "@respira/cli-core": "0.1.2",
     "zod": "^3.23.8"
   },
   "devDependencies": {

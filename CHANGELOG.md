@@ -4,6 +4,21 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.2] - 2026-04-20
+
+### Fixed
+
+- **`respira auth login` failed with `request failed: fetch failed`.** The default API base URL was `https://respira.press/api/v1`, which 307-redirects to `https://www.respira.press/api/v1` on the production deployment. Node's `fetch` does not follow 307 redirects on POST requests by default, so every CLI HTTP call (`/cli/auth/register-state`, `/cli/auth/exchange`, every other `/api/v1/*` endpoint) died at the redirect even though browsers handled the same URLs fine. Default base URL now points at `https://www.respira.press/api/v1` directly. The `--base-url` flag and `RESPIRA_API_BASE_URL` env still override.
+- **`respira auth login --web-url` default** flipped to `https://www.respira.press` for the same reason — the auth-handshake page also lives behind the apex redirect.
+
+## [0.1.1] - 2026-04-20
+
+### Added
+
+- Per-package READMEs on npm (full marketing-quality docs for `@respira/cli`, `@respira/sdk`, `@respira/cli-core`).
+
+Patch bump from 0.1.0 because npm does not allow re-publishing the same version. Source identical to 0.1.0.
+
 ## [0.1.0] - 2026-04-19
 
 ### Foundation release
