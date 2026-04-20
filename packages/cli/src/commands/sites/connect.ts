@@ -1,5 +1,25 @@
 import { Args, Flags } from '@oclif/core';
+import type { ToolChainFunction } from '@respira/cli-core';
+import { createRespiraClient, type Site } from '@respira/sdk';
 import { BaseCommand } from '../../base.js';
+
+export const sitesConnectFunction: ToolChainFunction<Site> = {
+  name: 'sites.connect',
+  description: 'store a WordPress site + plugin API key in ~/.respira/sites.json',
+  domainTags: ['sites', 'write'],
+  capability: 'write',
+  prerequisites: [],
+  async execute(input) {
+    const { url, apiKey, name, baseUrl } = input as {
+      url: string;
+      apiKey: string;
+      name?: string;
+      baseUrl?: string;
+    };
+    const client = createRespiraClient({ baseUrl, anonymous: true });
+    return client.sites.connect({ url, apiKey, name });
+  },
+};
 
 export default class SitesConnect extends BaseCommand {
   static override description = 'store a WordPress site + plugin API key in ~/.respira/sites.json';
@@ -45,11 +65,11 @@ export default class SitesConnect extends BaseCommand {
     }
 
     try {
-      const site = await this.client.sites.connect({
-        url: args.url,
-        apiKey: flags.key,
-        name: flags.name,
-      });
+      const site = await this.runThroughCycle(
+        sitesConnectFunction,
+        { url: args.url, apiKey: flags.key, name: flags.name, baseUrl: flags['base-url'] },
+        { toolName: 'sites connect', task: { url: args.url } },
+      );
       this.out.success(`connected ${site.name} → ${site.url}`);
       this.out.json(site);
     } catch (err) {

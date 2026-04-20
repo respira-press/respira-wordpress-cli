@@ -1,6 +1,7 @@
 import { Flags } from '@oclif/core';
 import { mkdir, writeFile, stat } from 'node:fs/promises';
 import { join } from 'node:path';
+import type { ToolChainFunction } from '@respira/cli-core';
 import { BaseCommand } from '../base.js';
 
 const SKILL_MD = `---
@@ -52,8 +53,8 @@ This directory was created by \`respira init-claude-code\`.
 
 ## What was added
 
-- \`.claude/skills/respira-wordpress-cli/SKILL.md\` — the skill that tells Claude Code how to use the Respira CLI
-- \`.claude/commands/\` — shortcut commands for common workflows
+- \`.claude/skills/respira-wordpress-cli/SKILL.md\`: the skill that tells Claude Code how to use the Respira CLI
+- \`.claude/commands/\`: shortcut commands for common workflows
 
 Claude Code will discover the skill automatically the next time you start a session in this directory.
 
@@ -82,6 +83,52 @@ description: Edit a single element on a WordPress page with a snapshot first.
 5. apply the change with \`respira write edit-element\`
 `;
 
+/**
+ * The cycle wraps the outer behavior: writing scaffolding files to disk.
+ * Per the plan's "If anything blocks" note, the actual content of each file
+ * stays byte-identical to the current build.
+ */
+export const initClaudeCodeFunction: ToolChainFunction<{ written: string[]; skipped: string[] }> = {
+  name: 'init-claude-code',
+  description: 'write Claude Code skill + command files into the current directory',
+  domainTags: ['tools', 'docs', 'write'],
+  capability: 'write',
+  prerequisites: [],
+  async execute(input) {
+    const { cwd, force } = input as { cwd: string; force: boolean };
+    const skillDir = join(cwd, '.claude', 'skills', 'respira-wordpress-cli');
+    const commandDir = join(cwd, '.claude', 'commands');
+    await mkdir(skillDir, { recursive: true });
+    await mkdir(commandDir, { recursive: true });
+
+    const targets: Array<{ path: string; content: string }> = [
+      { path: join(skillDir, 'SKILL.md'), content: SKILL_MD },
+      { path: join(commandDir, 'audit-wordpress.md'), content: COMMAND_AUDIT },
+      { path: join(commandDir, 'edit-wordpress-element.md'), content: COMMAND_EDIT },
+      { path: join(cwd, '.claude', 'RESPIRA_CLI_README.md'), content: README_MD },
+    ];
+
+    const written: string[] = [];
+    const skipped: string[] = [];
+
+    for (const t of targets) {
+      if (!force) {
+        try {
+          await stat(t.path);
+          skipped.push(t.path);
+          continue;
+        } catch {
+          // file does not exist, proceed
+        }
+      }
+      await writeFile(t.path, t.content, 'utf8');
+      written.push(t.path);
+    }
+
+    return { written, skipped };
+  },
+};
+
 export default class InitClaudeCode extends BaseCommand {
   static override description = 'set up Claude Code to use the Respira CLI (creates .claude/ in cwd)';
   static override flags = {
@@ -92,33 +139,22 @@ export default class InitClaudeCode extends BaseCommand {
   async run(): Promise<void> {
     await this.initClient({ anonymous: true });
     const { flags } = await this.parse(InitClaudeCode);
-    const cwd = process.cwd();
-    const skillDir = join(cwd, '.claude', 'skills', 'respira-wordpress-cli');
-    const commandDir = join(cwd, '.claude', 'commands');
-
-    await mkdir(skillDir, { recursive: true });
-    await mkdir(commandDir, { recursive: true });
-
-    await this.writeIfSafe(join(skillDir, 'SKILL.md'), SKILL_MD, flags.force);
-    await this.writeIfSafe(join(commandDir, 'audit-wordpress.md'), COMMAND_AUDIT, flags.force);
-    await this.writeIfSafe(join(commandDir, 'edit-wordpress-element.md'), COMMAND_EDIT, flags.force);
-    await this.writeIfSafe(join(cwd, '.claude', 'RESPIRA_CLI_README.md'), README_MD, flags.force);
-
-    this.out.success('Claude Code is now configured to use Respira CLI.');
-    this.out.info('next: run \'respira auth login\' if you haven\'t already, then try \'respira sites list\'.');
-  }
-
-  private async writeIfSafe(path: string, content: string, force: boolean): Promise<void> {
-    if (!force) {
-      try {
-        await stat(path);
+    try {
+      const { written, skipped } = await this.runThroughCycle(
+        initClaudeCodeFunction,
+        { cwd: process.cwd(), force: flags.force },
+        { toolName: 'init-claude-code' },
+      );
+      for (const path of skipped) {
         this.out.warn(`skipped (already exists): ${path}`);
-        return;
-      } catch {
-        // file does not exist, proceed
       }
+      for (const path of written) {
+        this.out.info(`wrote ${path}`);
+      }
+      this.out.success('Claude Code is now configured to use Respira CLI.');
+      this.out.info("next: run 'respira auth login' if you haven't already, then try 'respira sites list'.");
+    } catch (err) {
+      this.handleError(err);
     }
-    await writeFile(path, content, 'utf8');
-    this.out.info(`wrote ${path}`);
   }
 }

@@ -1,5 +1,37 @@
 import { Args, Flags } from '@oclif/core';
+import type { ToolChainFunction } from '@respira/cli-core';
+import { createRespiraClient } from '@respira/sdk';
 import { BaseCommand } from '../base.js';
+
+type FindElementQuery = {
+  type?: string;
+  text?: string;
+  css?: string;
+  id?: string;
+  limit?: number;
+};
+
+export const findElementFunction: ToolChainFunction<
+  Array<{ id: string; type: string; text: string; path: string }>
+> = {
+  name: 'find-element',
+  description: 'find elements on a page by type, text, CSS class, or id',
+  domainTags: ['pages', 'read', 'connected'],
+  capability: 'read',
+  prerequisites: [{ type: 'site_connected', required: true }],
+  async execute(input) {
+    const { site, page, query, baseUrl } = input as {
+      site: string;
+      page: string;
+      query: FindElementQuery;
+      baseUrl?: string;
+    };
+    const client = createRespiraClient({ baseUrl });
+    return client.read.findElement(site, page, query) as Promise<
+      Array<{ id: string; type: string; text: string; path: string }>
+    >;
+  },
+};
 
 export default class FindElement extends BaseCommand {
   static override description = 'find elements on a page by type, text, CSS class, or id';
@@ -29,7 +61,7 @@ export default class FindElement extends BaseCommand {
   async run(): Promise<void> {
     await this.initClient();
     const { args, flags } = await this.parse(FindElement);
-    const query = {
+    const query: FindElementQuery = {
       type: flags.type ?? args.type,
       text: flags.text,
       css: flags.css,
@@ -41,7 +73,11 @@ export default class FindElement extends BaseCommand {
       this.exit(2);
     }
     try {
-      const results = await this.client.read.findElement(args.site, args.page, query);
+      const results = await this.runThroughCycle(
+        findElementFunction,
+        { site: args.site, page: args.page, query, baseUrl: flags['base-url'] },
+        { toolName: 'find-element', task: { site: args.site, page: args.page } },
+      );
       this.out.table(results, ['id', 'type', 'text', 'path']);
     } catch (err) {
       this.handleError(err);

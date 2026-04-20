@@ -1,12 +1,18 @@
 # Respira CLI for WordPress
 
+<p align="center">
+  <img src="https://respira.press/hero/cli-hero.jpg" alt="Respira CLI for WordPress" width="900" />
+</p>
+
 **The WordPress CLI for the AI coding agent era.**
 
 Respira CLI is a modern WordPress command line interface built for developers working with AI coding agents like Claude Code, Cursor, and Codex. It understands Elementor, Divi, Bricks, WPBakery, Beaver Builder, Oxygen, Breakdance, Brizy, Thrive Architect, Flatsome, Gutenberg, and WooCommerce. It runs on your local machine. It never requires SSH.
 
+Built on a WordPress-native execution cycle. Extensions and callbacks arrive in v0.2.
+
 [![npm version](https://img.shields.io/npm/v/@respira/cli.svg)](https://www.npmjs.com/package/@respira/cli)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
-[![GitHub stars](https://img.shields.io/github/stars/respira-press/respira-wordpress-CLI?style=social)](https://github.com/respira-press/respira-wordpress-CLI)
+[![GitHub stars](https://img.shields.io/github/stars/respira-press/respira-wordpress-cli?style=social)](https://github.com/respira-press/respira-wordpress-cli)
 
 ```bash
 npm install -g @respira/cli
@@ -35,6 +41,23 @@ Use WP-CLI for server maintenance. Use Respira CLI for builder-native content wo
 - **Builder-native**: reads and writes Elementor, Divi, Bricks, and more in their native formats, not as generic WordPress posts.
 - **Agent-ready**: scriptable through `@respira/sdk`, JSON-first output, a command surface designed for Claude Code and Cursor.
 - **Safety-first**: every destructive operation snapshots first. `--dry-run` and `--diff` on every write.
+
+## Architecture
+
+Respira CLI is built on a six-phase execution cycle. Every command you run moves through the same deterministic runtime:
+
+```
+LoadContext -> PreHooks -> Resolve -> Execute -> PostHooks -> Return
+```
+
+Four things ship in v0.1:
+
+- **The execution cycle.** Six named phases. Every command runs through all of them. Nothing skips phases. Nothing reorders them. Deterministic by design, traceable with `--verbose`.
+- **The hook framework.** Five framework-level hook points are live: `before_resolve`, `filter_plan`, `before_execute`, `filter_result`, `after_execute`. In v0.1 no callbacks register here yet. The contracts are frozen. v0.2 adds callback registration and extension manifests on top, without changing anything you see in v0.1.
+- **Tool Chain Functions.** Every command is a typed function with a capability class, domain tags, and prerequisite declarations. Read, write, or destructive. Elementor, pages, write. Site connected and licensed. The cycle reads these and routes accordingly.
+- **Structured tracing.** `--verbose` on any command emits a JSON trace of the invocation: which phase ran, how long each took, what the tool chain function received and returned. Saved to `~/.respira/traces/`. Useful when a coding agent needs to understand why something did or did not do what was expected.
+
+Full details at [respira.press/cli/docs/architecture](https://respira.press/cli/docs/architecture) and [respira.press/cli/docs/hooks](https://respira.press/cli/docs/hooks).
 
 ## Elementor CLI
 

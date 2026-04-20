@@ -3,8 +3,41 @@ import { createServer, type IncomingMessage, type ServerResponse } from 'node:ht
 import { randomBytes } from 'node:crypto';
 import { AddressInfo } from 'node:net';
 import open from 'open';
+import type { ToolChainFunction } from '@respira/cli-core';
 import { ApiClient, createAuthStore } from '@respira/cli-core';
 import { BaseCommand } from '../../base.js';
+
+/**
+ * Tool Chain Function for the exchange+store step of auth login. The OAuth
+ * callback server and browser flow are orchestration and live in the Command
+ * class. The cycle wraps the outer step: given (state, code), exchange for an
+ * apiKey and persist it.
+ */
+export const authLoginFunction: ToolChainFunction<{ apiKey: string }> = {
+  name: 'auth.login',
+  description: 'exchange an OAuth code for an API key and persist it to the auth store',
+  domainTags: ['auth', 'write'],
+  capability: 'write',
+  prerequisites: [],
+  async execute(input) {
+    const { state, code, baseUrl } = input as {
+      state: string;
+      code: string;
+      baseUrl?: string;
+    };
+    const api = new ApiClient({ baseUrl, apiKey: null });
+    const res = await api.request<{ apiKey: string }>('cli/auth/exchange', {
+      method: 'POST',
+      body: JSON.stringify({ state, code }),
+    });
+    if (!res.apiKey) {
+      throw new Error('no apiKey returned from exchange endpoint');
+    }
+    const store = await createAuthStore();
+    await store.set(res.apiKey);
+    return { apiKey: res.apiKey };
+  },
+};
 
 export default class AuthLogin extends BaseCommand {
   static override description = 'authenticate the CLI via browser and store the API key';
@@ -26,10 +59,12 @@ export default class AuthLogin extends BaseCommand {
     const { flags } = await this.parse(AuthLogin);
     const state = randomBytes(16).toString('hex');
     try {
-      const { code, port } = await this.runCallbackServer(state, flags['no-browser'], flags['web-url']);
-      const key = await this.exchange(state, code, flags['base-url']);
-      const store = await createAuthStore();
-      await store.set(key);
+      const { code } = await this.runCallbackServer(state, flags['no-browser'], flags['web-url']);
+      await this.runThroughCycle(
+        authLoginFunction,
+        { state, code, baseUrl: flags['base-url'] },
+        { toolName: 'auth login' },
+      );
       const whoami = await this.client.auth.whoami().catch(() => null);
       if (whoami) {
         this.out.success(`authenticated as ${whoami.email}`);
@@ -79,7 +114,7 @@ export default class AuthLogin extends BaseCommand {
         const authUrl = `${webUrl.replace(/\/+$/, '')}/cli/auth?state=${state}&port=${port}`;
         // Register the state + port with the backend before opening the browser.
         // The /cli/auth page has a fallback that late-registers if this step fails,
-        // so we don't block on it — we just fire-and-forget and log on error.
+        // so we don't block on it. Fire-and-forget and log on error.
         this.registerState(state, port).catch((err) => {
           this.out.debug(`register-state failed (handshake will still work via fallback): ${err?.message ?? err}`);
         });
@@ -102,16 +137,6 @@ export default class AuthLogin extends BaseCommand {
       );
       server.on('close', () => clearTimeout(timeout));
     });
-  }
-
-  private async exchange(state: string, code: string, baseUrl?: string): Promise<string> {
-    const api = new ApiClient({ baseUrl, apiKey: null });
-    const res = await api.request<{ apiKey: string }>('cli/auth/exchange', {
-      method: 'POST',
-      body: JSON.stringify({ state, code }),
-    });
-    if (!res.apiKey) throw new Error('no apiKey returned from exchange endpoint');
-    return res.apiKey;
   }
 
   private async registerState(state: string, port: number): Promise<void> {

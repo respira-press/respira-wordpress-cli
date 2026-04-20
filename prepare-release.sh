@@ -1,34 +1,28 @@
 #!/usr/bin/env bash
-# prepare-release.sh — install, typecheck, build, test all three packages, and show a npm publish dry-run.
-# usage: bash prepare-release.sh
+# prepare-release.sh — build, test, and dry-run npm publish for all three packages.
+# usage: bash packages/cli/prepare-release.sh
 
 set -euo pipefail
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-cd "$ROOT"
 
-echo "=== npm install (workspaces) ==="
-npm install
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
-echo ""
-echo "=== typecheck ==="
-npm run typecheck --workspaces --if-present
+build_pkg() {
+  local dir="$1"
+  echo ""
+  echo "=== $dir ==="
+  cd "$ROOT/$dir"
+  npm install
+  npm run typecheck
+  npm run build
+  npm test
+  echo "--- npm publish --dry-run ---"
+  npm publish --dry-run
+}
 
-echo ""
-echo "=== build ==="
-npm run build --workspaces --if-present
-
-echo ""
-echo "=== test ==="
-npm test --workspaces --if-present
-
-echo ""
-echo "=== npm publish --dry-run ==="
-for pkg in cli-core sdk cli; do
-  echo "--- @respira/$pkg ---"
-  npm publish --dry-run --workspace="@respira/$pkg"
-done
+build_pkg "cli-core"
+build_pkg "sdk"
+build_pkg "cli"
 
 echo ""
 echo "all three packages built, tested, and publish-dry-run passed."
-echo "to actually publish: push a git tag like v0.1.0 (release.yml handles publish),"
-echo "or run: npm publish --access public --workspace=@respira/<name>"
+echo "to actually publish: cd packages/<name> && npm publish --access public"

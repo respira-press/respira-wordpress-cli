@@ -1,26 +1,20 @@
 {
-  "name": "respira-wordpress-cli-monorepo",
-  "version": "0.1.0",
-  "description": "Respira CLI for WordPress — monorepo root.",
-  "private": true,
-  "license": "MIT",
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/respira-press/respira-wordpress-CLI.git"
-  },
-  "engines": {
-    "node": ">=18.0.0"
-  },
   "workspaces": [
     "packages/cli-core",
     "packages/sdk",
     "packages/cli"
   ],
   "scripts": {
-    "build": "npm run build --workspaces --if-present",
-    "dev": "npm run dev --workspace=@respira/cli",
-    "test": "npm run test --workspaces --if-present",
-    "typecheck": "npm run typecheck --workspaces --if-present",
-    "prepare-release": "bash prepare-release.sh"
+    "check:registry-parity": "node scripts/check-tool-registry-parity.mjs",
+    "cli:build": "cd packages/cli-core && npm run build && cd ../sdk && npm run build && cd ../cli && npm run build",
+    "cli:dev": "cd packages/cli && npm run dev",
+    "cli:test": "cd packages/cli-core && npm run test && cd ../sdk && npm run test && cd ../cli && npm run test",
+    "cli:typecheck": "cd packages/cli-core && npm run typecheck && cd ../sdk && npm run typecheck && cd ../cli && npm run typecheck"
+  },
+  "devDependencies": {
+    "dotenv": "^17.2.3"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.78.0"
   }
 }

@@ -1,5 +1,23 @@
 import { Args, Flags } from '@oclif/core';
+import type { ToolChainFunction } from '@respira/cli-core';
+import { createRespiraClient } from '@respira/sdk';
 import { BaseCommand } from '../../base.js';
+
+export const snapshotsRestoreFunction: ToolChainFunction<unknown> = {
+  name: 'snapshots.restore',
+  description: 'restore a snapshot (destructive, overwrites current state)',
+  domainTags: ['snapshots', 'write', 'destructive', 'connected', 'licensed'],
+  capability: 'destructive',
+  prerequisites: [
+    { type: 'site_connected', required: true },
+    { type: 'license', required: true },
+  ],
+  async execute(input) {
+    const { snapshot, baseUrl } = input as { snapshot: string; baseUrl?: string };
+    const client = createRespiraClient({ baseUrl });
+    return client.snapshots.restore(snapshot);
+  },
+};
 
 export default class SnapshotsRestore extends BaseCommand {
   static override description = 'restore a snapshot';
@@ -17,7 +35,11 @@ export default class SnapshotsRestore extends BaseCommand {
       this.exit(2);
     }
     try {
-      await this.client.snapshots.restore(args.snapshot);
+      await this.runThroughCycle(
+        snapshotsRestoreFunction,
+        { snapshot: args.snapshot, baseUrl: flags['base-url'] },
+        { toolName: 'snapshots restore', task: { snapshot: args.snapshot } },
+      );
       this.out.success(`snapshot ${args.snapshot} restored`);
     } catch (err) {
       this.handleError(err);

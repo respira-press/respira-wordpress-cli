@@ -1,6 +1,6 @@
 # Respira CLI roadmap
 
-This is a living document. Feedback and issues welcome at https://github.com/respira-press/respira-wordpress-CLI/issues.
+This is a living document. Feedback and issues welcome at https://github.com/respira-press/respira-wordpress-cli/issues.
 
 ## v0.2 — backend alignment
 

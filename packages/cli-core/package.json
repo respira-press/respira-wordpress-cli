@@ -9,10 +9,10 @@
     "cli"
   ],
   "homepage": "https://respira.press/cli",
-  "bugs": "https://github.com/respira-press/respira-wordpress-CLI/issues",
+  "bugs": "https://github.com/respira-press/respira-wordpress-cli/issues",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/respira-press/respira-wordpress-CLI.git",
+    "url": "git+https://github.com/respira-press/respira-wordpress-cli.git",
     "directory": "packages/cli-core"
   },
   "license": "MIT",

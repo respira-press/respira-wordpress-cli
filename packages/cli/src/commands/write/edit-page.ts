@@ -1,5 +1,30 @@
 import { Args, Flags } from '@oclif/core';
+import type { ToolChainFunction } from '@respira/cli-core';
+import { createRespiraClient, type Page } from '@respira/sdk';
 import { BaseCommand } from '../../base.js';
+
+type Patch = { op: 'set'; path: string; value: unknown };
+
+export const writeEditPageFunction: ToolChainFunction<Page> = {
+  name: 'write.edit-page',
+  description: 'edit a page using JSON path patches (duplicate-first)',
+  domainTags: ['pages', 'write', 'connected', 'licensed'],
+  capability: 'write',
+  prerequisites: [
+    { type: 'site_connected', required: true },
+    { type: 'license', required: true },
+  ],
+  async execute(input) {
+    const { site, page, patches, baseUrl } = input as {
+      site: string;
+      page: string;
+      patches: Patch[];
+      baseUrl?: string;
+    };
+    const client = createRespiraClient({ baseUrl });
+    return client.write.editPage(site, page, patches);
+  },
+};
 
 export default class WriteEditPage extends BaseCommand {
   static override description = 'edit a page using JSON path patches';
@@ -22,7 +47,7 @@ export default class WriteEditPage extends BaseCommand {
   async run(): Promise<void> {
     await this.initClient();
     const { args, flags } = await this.parse(WriteEditPage);
-    const patches = (flags.set as string[]).map((pair) => {
+    const patches: Patch[] = (flags.set as string[]).map((pair) => {
       const idx = pair.indexOf('=');
       if (idx < 0) throw new Error(`--set expects path=value, got: ${pair}`);
       const path = pair.slice(0, idx);
@@ -33,7 +58,7 @@ export default class WriteEditPage extends BaseCommand {
       } catch {
         // keep as string
       }
-      return { op: 'set' as const, path, value };
+      return { op: 'set', path, value };
     });
     if (flags['dry-run']) {
       this.out.info('dry run. patches not applied:');
@@ -44,7 +69,11 @@ export default class WriteEditPage extends BaseCommand {
       const before = flags.diff
         ? await this.client.read.page(args.site, args.page).catch(() => null)
         : null;
-      const after = await this.client.write.editPage(args.site, args.page, patches);
+      const after = await this.runThroughCycle(
+        writeEditPageFunction,
+        { site: args.site, page: args.page, patches, baseUrl: flags['base-url'] },
+        { toolName: 'write edit-page', task: { site: args.site, page: args.page } },
+      );
       if (flags.diff) {
         this.out.json({ before, after });
       } else {
