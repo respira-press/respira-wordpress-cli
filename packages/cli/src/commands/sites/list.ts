@@ -41,6 +41,18 @@ export default class SitesList extends BaseCommand {
         },
         { toolName: 'sites list' },
       );
+      if (!sites.length) {
+        this.log('');
+        this.log('  no sites connected yet');
+        this.log('');
+        this.log('  connect your first site with:');
+        this.log('    respira sites connect https://yoursite.com');
+        this.log('');
+        this.log('  your WordPress site needs the Respira plugin installed first.');
+        this.log('  details: https://respira.press/docs/installation');
+        this.log('');
+        return;
+      }
       this.out.table(sites, ['id', 'name', 'url', 'builder', 'status']);
     } catch (err) {
       this.handleError(err);

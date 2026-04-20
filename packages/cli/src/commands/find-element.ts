@@ -69,7 +69,7 @@ export default class FindElement extends BaseCommand {
       limit: flags.limit,
     };
     if (!query.type && !query.text && !query.css && !query.id) {
-      this.out.error('at least one of <type>, --type, --text, --css, or --id is required');
+      this.out.error('at least one of <type>, --type, --text, --css, or --id is required\n  example: respira find-element mysite.com home --type=heading');
       this.exit(2);
     }
     try {

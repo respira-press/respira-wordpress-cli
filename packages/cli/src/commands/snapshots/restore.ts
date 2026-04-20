@@ -31,7 +31,7 @@ export default class SnapshotsRestore extends BaseCommand {
     await this.initClient();
     const { args, flags } = await this.parse(SnapshotsRestore);
     if (!flags.confirm) {
-      this.out.error('--confirm is required to restore');
+      this.out.error('--confirm is required to restore\n  add --confirm to overwrite the current page state');
       this.exit(2);
     }
     try {
@@ -40,7 +40,7 @@ export default class SnapshotsRestore extends BaseCommand {
         { snapshot: args.snapshot, baseUrl: flags['base-url'] },
         { toolName: 'snapshots restore', task: { snapshot: args.snapshot } },
       );
-      this.out.success(`snapshot ${args.snapshot} restored`);
+      this.out.success(`restored snapshot ${args.snapshot}`);
     } catch (err) {
       this.handleError(err);
     }

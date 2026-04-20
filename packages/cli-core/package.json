@@ -1,6 +1,6 @@
 {
   "name": "@respira/cli-core",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "description": "Shared utilities for Respira CLI for WordPress. Auth storage, output formatting, API client, error types.",
   "keywords": [
     "wordpress",
@@ -44,6 +44,7 @@
   },
   "dependencies": {
     "@napi-rs/keyring": "^1.2.0",
+    "picocolors": "^1.1.0",
     "zod": "^3.23.8"
   },
   "devDependencies": {

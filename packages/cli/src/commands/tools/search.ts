@@ -30,6 +30,19 @@ export default class ToolsSearch extends BaseCommand {
         { query: args.query, baseUrl: flags['base-url'] },
         { toolName: 'tools search', task: { query: args.query } },
       );
+      if (!tools.length) {
+        this.log('');
+        this.log(`  no tools found for "${args.query}"`);
+        this.log('');
+        this.log('  try a simpler query, for example:');
+        this.log('    respira tools search builder');
+        this.log('    respira tools search elementor');
+        this.log('');
+        this.log('  or browse the full catalog:');
+        this.log('    respira tools list');
+        this.log('');
+        return;
+      }
       this.out.table(tools, ['name', 'category', 'description']);
     } catch (err) {
       this.handleError(err);

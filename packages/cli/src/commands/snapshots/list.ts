@@ -32,6 +32,15 @@ export default class SnapshotsList extends BaseCommand {
         { site: args.site, baseUrl: flags['base-url'] },
         { toolName: 'snapshots list', task: { site: args.site } },
       );
+      if (!snaps.length) {
+        this.log('');
+        this.log(`  no snapshots yet for ${args.site}`);
+        this.log('');
+        this.log('  snapshots are created automatically whenever you write through Respira.');
+        this.log('  make your first edit with any connected AI tool and snapshots will appear here.');
+        this.log('');
+        return;
+      }
       this.out.table(snaps, ['id', 'createdAt', 'trigger', 'description']);
     } catch (err) {
       this.handleError(err);

@@ -38,7 +38,7 @@ export default class WriteDeletePage extends BaseCommand {
     await this.initClient();
     const { args, flags } = await this.parse(WriteDeletePage);
     if (!flags.confirm) {
-      this.out.error('--confirm is required to delete');
+      this.out.error('--confirm is required to delete\n  add --confirm to acknowledge this is destructive');
       this.exit(2);
     }
     try {

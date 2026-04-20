@@ -4,6 +4,23 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.4] - 2026-04-21
+
+### Added
+
+- **Branded first-run welcome on `respira auth login`.** A full-width ASCII wordmark, a "welcome, <email>" greeting, and a categorized list of all 11 next-step commands (sites, tools, read, snapshots, docs). Drops the wordmark gracefully below 40 columns and respects `NO_COLOR` and non-TTY output.
+- **Short two-line welcome on `respira auth whoami`.** Prints `signed in as <email>` and a `respira --help for commands` hint. JSON output (piped or `--output=json`) stays raw and machine-parseable.
+- **New formatter module in `@respira/cli-core`** with consistent voice helpers: `formatSuccess` (check glyph), `formatError` (cross glyph with optional indented remediation on a second line), `formatWarning`, `formatProgress`, plus `levenshtein` + `suggestCommand` for future "did you mean" wiring.
+- **Empty-state guidance** for `respira sites list`, `respira tools search`, and `respira snapshots list`. Each tells the user exactly what to run next instead of printing a bare `(no results)` placeholder.
+
+### Changed
+
+- **Voice consistency across success, error, and warning lines.** Verb-first phrasing, lowercase `i` in first person, no em dashes, single check glyph for success and cross glyph for errors. Existing `out.success` / `out.warn` / `out.error` calls now route through the formatter helpers.
+
+### Internal
+
+- 16 new tests in `formatter.test.ts` (54 cli-core tests total). Output integration test updated for the new glyph-prefixed success format.
+
 ## [0.1.3] - 2026-04-20
 
 ### Fixed

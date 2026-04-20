@@ -151,8 +151,8 @@ export default class InitClaudeCode extends BaseCommand {
       for (const path of written) {
         this.out.info(`wrote ${path}`);
       }
-      this.out.success('Claude Code is now configured to use Respira CLI.');
-      this.out.info("next: run 'respira auth login' if you haven't already, then try 'respira sites list'.");
+      this.out.success('Claude Code is configured for Respira CLI');
+      this.out.info("next: run 'respira auth login' if you haven't already, then try 'respira sites list'");
     } catch (err) {
       this.handleError(err);
     }

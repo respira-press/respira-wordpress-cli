@@ -4,7 +4,7 @@ import { randomBytes } from 'node:crypto';
 import { AddressInfo } from 'node:net';
 import open from 'open';
 import type { ToolChainFunction } from '@respira/cli-core';
-import { ApiClient, createAuthStore } from '@respira/cli-core';
+import { ApiClient, createAuthStore, renderWelcome, formatProgress } from '@respira/cli-core';
 import { BaseCommand } from '../../base.js';
 
 /**
@@ -68,20 +68,9 @@ export default class AuthLogin extends BaseCommand {
       // Re-init the client so it picks up the API key just written to the
       // keychain. The original client was anonymous and would 401 on whoami.
       await this.initClient();
-      const whoami = await this.client.auth.whoami().catch(() => null);
-      const greeting = whoami
-        ? `Welcome${whoami.email ? `, ${whoami.email}` : ''}.`
-        : 'Welcome.';
+      const user = await this.client.auth.whoami().catch(() => null);
       this.log('');
-      this.log(`  ✓ ${greeting} You\u2019re signed in to Respira CLI.`);
-      this.log('');
-      this.log('  Try one of these next:');
-      this.log('    respira sites connect <url>      Connect a WordPress site');
-      this.log('    respira sites list               See your connected sites');
-      this.log('    respira tools list               Browse the 234-tool catalog');
-      this.log('    respira read structure <url>    Anonymous read of any public WP site');
-      this.log('');
-      this.log('  Docs: https://respira.press/cli/docs');
+      this.log(renderWelcome({ email: user?.email ?? null }));
       this.log('');
     } catch (err) {
       this.handleError(err);
@@ -141,18 +130,33 @@ export default class AuthLogin extends BaseCommand {
           this.out.debug(`register-state failed (handshake will still work via fallback): ${err?.message ?? err}`);
         });
         if (noBrowser) {
-          this.out.info(`open this URL to authenticate:\n${authUrl}`);
+          this.log('');
+          this.log(formatProgress(`open this URL to sign in: ${authUrl}`));
+          this.log(formatProgress('waiting for confirmation'));
+          this.log('');
         } else {
-          this.out.info(`opening browser. if it doesn't open automatically, visit: ${authUrl}`);
+          this.log('');
+          this.log(formatProgress('opening browser to sign in...'));
+          this.log(formatProgress(`if the browser didn't open, visit: ${authUrl}`));
+          this.log(formatProgress('waiting for confirmation'));
+          this.log('');
           open(authUrl).catch(() => {
-            this.out.info(`browser failed to open. visit: ${authUrl}`);
+            this.log(formatProgress(`browser failed to open. visit: ${authUrl}`));
           });
         }
       });
 
       const timeout = setTimeout(
         () => {
-          reject(new Error('auth timed out after 5 minutes'));
+          reject(
+            new Error(
+              [
+                'sign-in timed out after 5 minutes',
+                '  try again with: respira auth login',
+                '  or check the docs: https://respira.press/cli/docs/authentication',
+              ].join('\n'),
+            ),
+          );
           server.close();
         },
         5 * 60 * 1000,

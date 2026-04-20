@@ -45,7 +45,7 @@ export default class Exec extends BaseCommand {
     const { args, flags } = await this.parse(Exec);
     const source = await this.readSource(args.script, flags.stdin);
     if (!source.trim()) {
-      this.out.error('no script provided');
+      this.out.error('no script provided\n  pass a path: respira exec scripts/audit.ts');
       this.exit(2);
     }
     try {

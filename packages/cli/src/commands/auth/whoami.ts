@@ -1,4 +1,5 @@
 import type { ToolChainFunction } from '@respira/cli-core';
+import { renderWelcomeShort } from '@respira/cli-core';
 import { createRespiraClient, type User } from '@respira/sdk';
 import { BaseCommand } from '../../base.js';
 
@@ -28,7 +29,12 @@ export default class AuthWhoami extends BaseCommand {
         { baseUrl: flags['base-url'] },
         { toolName: 'auth whoami' },
       );
-      this.out.json(user);
+      // JSON for piped/--output=json contexts; otherwise the short welcome.
+      if (flags.output === 'json' || !process.stdout.isTTY) {
+        this.out.json(user);
+      } else {
+        this.log(renderWelcomeShort(user));
+      }
     } catch (err) {
       this.handleError(err);
     }
